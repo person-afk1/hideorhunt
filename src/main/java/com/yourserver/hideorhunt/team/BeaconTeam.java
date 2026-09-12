@@ -23,6 +23,10 @@ public class BeaconTeam {
         members.add(uuid);
     }
 
+    public void removeMember(UUID uuid) {
+        members.remove(uuid);
+    }
+
     public boolean isBeaconAlive() {
         return beaconAlive;
     }
