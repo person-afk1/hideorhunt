@@ -4,10 +4,13 @@ import com.yourserver.hideorhunt.team.BeaconTeam;
 import com.yourserver.hideorhunt.team.TeamManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 public class TeamCommand implements CommandExecutor {
@@ -20,65 +23,46 @@ public class TeamCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only players can use this command.");
-            return true;
-        }
-
         if (args.length < 1) {
-            player.sendMessage(Component.text("Usage: /team <create|join|list>", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Usage: /team <create|join|leave|givebeacon> [args]", NamedTextColor.RED));
             return true;
         }
 
         String sub = args[0].toLowerCase();
 
-        if (sub.equals("create")) {
-            if (args.length < 2) {
-                player.sendMessage(Component.text("Usage: /team create <teamName>", NamedTextColor.RED));
-                return true;
+        switch (sub) {
+            case "create" -> {
+                if (args.length < 2) {
+                    sender.sendMessage(Component.text("Usage: /team create <teamName>", NamedTextColor.RED));
+                    return true;
+                }
+                String name = args[1];
+                teamManager.createTeam(name);
+                sender.sendMessage(Component.text("Created team: " + name, NamedTextColor.GREEN));
             }
-            String teamName = args[1];
-            if (teamManager.getTeamByName(teamName) != null) {
-                player.sendMessage(Component.text("A team with that name already exists!", NamedTextColor.RED));
-                return true;
+            case "join" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("Only players can join teams!");
+                    return true;
+                }
+                if (args.length < 2) {
+                    player.sendMessage(Component.text("Usage: /team join <teamName>", NamedTextColor.RED));
+                    return true;
+                }
+                boolean joined = teamManager.joinTeam(player, args[1]);
+                if (joined) {
+                    player.sendMessage(Component.text("Joined team: " + args[1], NamedTextColor.GREEN));
+                } else {
+                    player.sendMessage(Component.text("Team not found!", NamedTextColor.RED));
+                }
             }
-
-            BeaconTeam team = new BeaconTeam(teamName);
-            teamManager.registerTeam(team);
-            team.addMember(player.getUniqueId());
-            teamManager.setPlayerTeam(player.getUniqueId(), team);
-
-            player.sendMessage(Component.text("Team '" + teamName + "' created and you have joined it!", NamedTextColor.GREEN));
-            return true;
+            case "givebeacon" -> {
+                if (!(sender instanceof Player player)) return true;
+                player.getInventory().addItem(new ItemStack(Material.BEACON));
+                player.sendMessage(Component.text("Received team Beacon!", NamedTextColor.AQUA));
+            }
+            default -> sender.sendMessage(Component.text("Unknown subcommand.", NamedTextColor.RED));
         }
-
-        if (sub.equals("join")) {
-            if (args.length < 2) {
-                player.sendMessage(Component.text("Usage: /team join <teamName>", NamedTextColor.RED));
-                return true;
-            }
-            String teamName = args[1];
-            BeaconTeam team = teamManager.getTeamByName(teamName);
-
-            if (team == null) {
-                player.sendMessage(Component.text("Team not found!", NamedTextColor.RED));
-                return true;
-            }
-
-            team.addMember(player.getUniqueId());
-            teamManager.setPlayerTeam(player.getUniqueId(), team);
-            player.sendMessage(Component.text("You joined team " + teamName + "!", NamedTextColor.GREEN));
-            return true;
-        }
-
-        if (sub.equals("list")) {
-            player.sendMessage(Component.text("--- Active Teams ---", NamedTextColor.GOLD));
-            for (BeaconTeam t : teamManager.getAllTeams()) {
-                player.sendMessage(Component.text("- " + t.getName() + " (" + t.getMembers().size() + " members)", NamedTextColor.YELLOW));
-            }
-            return true;
-        }
-
-        return false;
+        return true;
     }
 }
