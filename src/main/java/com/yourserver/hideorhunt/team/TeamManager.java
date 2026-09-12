@@ -4,12 +4,20 @@ import com.yourserver.hideorhunt.HideOrHuntPlugin;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class TeamManager {
+
     private final HideOrHuntPlugin plugin;
-    private final Map<String, BeaconTeam> teamsByName = new HashMap<>();
-    private final Map<UUID, BeaconTeam> playerTeams = new HashMap<>();
+    
+    // Stores teams by their lowercase name (e.g. "red" -> BeaconTeam)
+    private final Map<String, BeaconTeam> teams = new HashMap<>();
+    
+    // Stores which player is on which team (Player UUID -> BeaconTeam)
+    private final Map<UUID, BeaconTeam> playerTeamMap = new HashMap<>();
 
     public TeamManager(HideOrHuntPlugin plugin) {
         this.plugin = plugin;
@@ -19,37 +27,56 @@ public class TeamManager {
         return plugin;
     }
 
-    public void registerTeam(BeaconTeam team) {
-        teamsByName.put(team.getName().toLowerCase(), team);
+    // 1. Create a new team
+    public BeaconTeam createTeam(String name) {
+        BeaconTeam team = new BeaconTeam(name);
+        teams.put(name.toLowerCase(), team);
+        return team;
     }
 
-    public BeaconTeam getTeamByName(String name) {
-        return teamsByName.get(name.toLowerCase());
+    // 2. Add a player to a team
+    public boolean joinTeam(Player player, String teamName) {
+        BeaconTeam targetTeam = teams.get(teamName.toLowerCase());
+        if (targetTeam == null) {
+            return false;
+        }
+
+        // Leave current team first if they are in one
+        leaveTeam(player);
+
+        targetTeam.addMember(player.getUniqueId());
+        playerTeamMap.put(player.getUniqueId(), targetTeam);
+        return true;
     }
 
+    // 3. Remove a player from their team
+    public void leaveTeam(Player player) {
+        BeaconTeam currentTeam = playerTeamMap.remove(player.getUniqueId());
+        if (currentTeam != null) {
+            currentTeam.removeMember(player.getUniqueId());
+        }
+    }
+
+    // 4. Find which team a player belongs to
     public BeaconTeam getTeam(Player player) {
-        return playerTeams.get(player.getUniqueId());
+        return playerTeamMap.get(player.getUniqueId());
     }
 
-    public void setPlayerTeam(UUID uuid, BeaconTeam team) {
-        playerTeams.put(uuid, team);
-    }
-
-    public Collection<BeaconTeam> getAllTeams() {
-        return teamsByName.values();
-    }
-
-    public BeaconTeam getTeamByBeaconLocation(Location loc) {
-        if (loc == null) return null;
-        for (BeaconTeam team : teamsByName.values()) {
-            Location beaconLoc = team.getBeaconLocation();
-            if (beaconLoc != null && beaconLoc.getWorld().equals(loc.getWorld())
-                    && beaconLoc.getBlockX() == loc.getBlockX()
-                    && beaconLoc.getBlockY() == loc.getBlockY()
-                    && beaconLoc.getBlockZ() == loc.getBlockZ()) {
+    // 5. Find a team by their beacon's block location
+    public BeaconTeam getTeamByBeaconLocation(Location location) {
+        for (BeaconTeam team : teams.values()) {
+            Location bLoc = team.getBeaconLocation();
+            if (bLoc != null && bLoc.getWorld().equals(location.getWorld())
+                    && bLoc.getBlockX() == location.getBlockX()
+                    && bLoc.getBlockY() == location.getBlockY()
+                    && bLoc.getBlockZ() == location.getBlockZ()) {
                 return team;
             }
         }
         return null;
+    }
+
+    public Collection<BeaconTeam> getTeams() {
+        return teams.values();
     }
 }
