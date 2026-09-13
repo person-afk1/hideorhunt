@@ -10,30 +10,33 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class HideOrHuntPlugin extends JavaPlugin {
 
     private TeamManager teamManager;
+    private boolean craftingTableAllowed = false; // Default: blocked
 
     @Override
     public void onEnable() {
         this.teamManager = new TeamManager(this);
 
-        getServer().getPluginManager().registerEvents(new BeaconListener(teamManager), this);
+        // Register Listeners (now passes 'this' along with 'teamManager')
+        getServer().getPluginManager().registerEvents(new BeaconListener(this, teamManager), this);
         getServer().getPluginManager().registerEvents(new RespawnListener(teamManager), this);
 
-        if (getCommand("team") != null) {
-            getCommand("team").setExecutor(new TeamCommand(teamManager));
+        // Register Commands
+        if (this.getCommand("team") != null) {
+            this.getCommand("team").setExecutor(new TeamCommand(teamManager));
         }
-
-        if (getCommand("hohadmin") != null) {
-            AdminCommand adminCmd = new AdminCommand(this, teamManager);
-            getCommand("hohadmin").setExecutor(adminCmd);
-            getCommand("hohadmin").setTabCompleter(adminCmd);
+        if (this.getCommand("hohadmin") != null) {
+            this.getCommand("hohadmin").setExecutor(new AdminCommand(this));
         }
 
         getLogger().info("HideOrHunt has been enabled successfully!");
     }
 
-    @Override
-    public void onDisable() {
-        getLogger().info("HideOrHunt disabled.");
+    public boolean isCraftingTableAllowed() {
+        return craftingTableAllowed;
+    }
+
+    public void setCraftingTableAllowed(boolean allowed) {
+        this.craftingTableAllowed = allowed;
     }
 
     public TeamManager getTeamManager() {
