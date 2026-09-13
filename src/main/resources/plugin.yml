@@ -8,10 +8,10 @@ author: Arpan
 commands:
   team:
     description: Manage Hide or Hunt teams
-    usage: /team <create|join|list>
+    usage: /team <create|join|leave|givebeacon|list>
   hohadmin:
     description: Master admin controls for Hide or Hunt
-    usage: /hohadmin <status|givebeacons|forceteam|destroybeacon|clearteams>
+    usage: /hohadmin <togglecrafting|status|givebeacons|forceteam|destroybeacon|clearteams>
     aliases: [hha]
     permission: hideorhunt.admin
     permission-message: "<red>You must be an event operator to execute this command!</red>"
