@@ -1,104 +1,123 @@
 package com.yourserver.hideorhunt.team;
 
 import com.yourserver.hideorhunt.HideOrHuntPlugin;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 
 public class TeamManager {
-
     private final HideOrHuntPlugin plugin;
-    private final Map<String, BeaconTeam> teams = new HashMap<>();
-    private final Map<UUID, BeaconTeam> playerTeamMap = new HashMap<>();
+    private final Map<String, TeamData> teams = new HashMap<>();
+    private final Map<UUID, String> playerTeamMap = new HashMap<>();
+    private final Set<UUID> teamChatEnabled = new HashSet<>();
+    private final File dataFile;
+    private FileConfiguration dataConfig;
 
     public TeamManager(HideOrHuntPlugin plugin) {
         this.plugin = plugin;
+        this.dataFile = new File(plugin.getDataFolder(), "data.yml");
+        initDefaultTeams();
+        loadData();
     }
 
-    public HideOrHuntPlugin getPlugin() {
-        return plugin;
+    private void initDefaultTeams() {
+        registerTeam("Red", NamedTextColor.RED);
+        registerTeam("Blue", NamedTextColor.BLUE);
+        registerTeam("Green", NamedTextColor.GREEN);
+        registerTeam("Yellow", NamedTextColor.YELLOW);
     }
 
-    // --- Methods for TeamCommand ---
-
-    public BeaconTeam createTeam(String name) {
-        BeaconTeam team = new BeaconTeam(name);
-        teams.put(name.toLowerCase(), team);
-        return team;
+    public void registerTeam(String name, NamedTextColor color) {
+        teams.put(name.toLowerCase(), new TeamData(name, color));
     }
 
-    public boolean joinTeam(Player player, String teamName) {
-        BeaconTeam targetTeam = teams.get(teamName.toLowerCase());
-        if (targetTeam == null) {
-            return false;
-        }
-        leaveTeam(player);
-        targetTeam.addMember(player.getUniqueId());
-        playerTeamMap.put(player.getUniqueId(), targetTeam);
-        return true;
-    }
-
-    public void leaveTeam(Player player) {
-        BeaconTeam currentTeam = playerTeamMap.remove(player.getUniqueId());
-        if (currentTeam != null) {
-            currentTeam.removeMember(player.getUniqueId());
-        }
-    }
-
-    public BeaconTeam getTeam(Player player) {
-        return playerTeamMap.get(player.getUniqueId());
-    }
-
-    public Collection<BeaconTeam> getTeams() {
-        return teams.values();
-    }
-
-    // --- Methods required by AdminCommand ---
-
-    public BeaconTeam getTeamByName(String name) {
-        if (name == null) return null;
+    public TeamData getTeam(String name) {
         return teams.get(name.toLowerCase());
     }
 
-    public void registerTeam(BeaconTeam team) {
+    public TeamData getPlayerTeam(UUID uuid) {
+        String teamName = playerTeamMap.get(uuid);
+        return teamName != null ? teams.get(teamName) : null;
+    }
+
+    public void setPlayerTeam(UUID uuid, String teamName) {
+        TeamData oldTeam = getPlayerTeam(uuid);
+        if (oldTeam != null) {
+            oldTeam.getMembers().remove(uuid);
+        }
+        TeamData team = getTeam(teamName);
         if (team != null) {
-            teams.put(team.getName().toLowerCase(), team);
+            team.getMembers().add(uuid);
+            playerTeamMap.put(uuid, teamName.toLowerCase());
+        } else {
+            playerTeamMap.remove(uuid);
         }
+        saveData();
     }
 
-    public void setPlayerTeam(UUID uuid, BeaconTeam team) {
-        if (team == null) {
-            BeaconTeam prev = playerTeamMap.remove(uuid);
-            if (prev != null) prev.removeMember(uuid);
-            return;
-        }
-        BeaconTeam prev = playerTeamMap.get(uuid);
-        if (prev != null) prev.removeMember(uuid);
-
-        team.addMember(uuid);
-        playerTeamMap.put(uuid, team);
-    }
-
-    public Collection<BeaconTeam> getAllTeams() {
+    public Collection<TeamData> getTeams() {
         return teams.values();
     }
 
-    // --- Beacon lookup ---
+    public boolean isTeamChatActive(UUID uuid) {
+        return teamChatEnabled.contains(uuid);
+    }
 
-    public BeaconTeam getTeamByBeaconLocation(Location location) {
-        for (BeaconTeam team : teams.values()) {
-            Location bLoc = team.getBeaconLocation();
-            if (bLoc != null && bLoc.getWorld().equals(location.getWorld())
-                    && bLoc.getBlockX() == location.getBlockX()
-                    && bLoc.getBlockY() == location.getBlockY()
-                    && bLoc.getBlockZ() == location.getBlockZ()) {
-                return team;
+    public void toggleTeamChat(UUID uuid) {
+        if (!teamChatEnabled.add(uuid)) {
+            teamChatEnabled.remove(uuid);
+        }
+    }
+
+    public void saveData() {
+        if (dataConfig == null) dataConfig = new YamlConfiguration();
+        for (TeamData team : teams.values()) {
+            String path = "teams." + team.getName().toLowerCase();
+            dataConfig.set(path + ".leader", team.getLeader() != null ? team.getLeader().toString() : null);
+            List<String> mems = team.getMembers().stream().map(UUID::toString).toList();
+            dataConfig.set(path + ".members", mems);
+            dataConfig.set(path + ".beaconAlive", team.isBeaconAlive());
+            dataConfig.set(path + ".friendlyFire", team.isFriendlyFire());
+            if (team.getBeaconLocation() != null) {
+                dataConfig.set(path + ".beaconLoc", team.getBeaconLocation());
             }
         }
-        return null;
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save data.yml: " + e.getMessage());
+        }
+    }
+
+    public void loadData() {
+        if (!dataFile.exists()) return;
+        dataConfig = YamlConfiguration.loadConfiguration(dataFile);
+        if (!dataConfig.contains("teams")) return;
+
+        for (String key : dataConfig.getConfigurationSection("teams").getKeys(false)) {
+            TeamData team = getTeam(key);
+            if (team == null) continue;
+            String path = "teams." + key;
+            if (dataConfig.contains(path + ".leader")) {
+                String leadStr = dataConfig.getString(path + ".leader");
+                if (leadStr != null) team.setLeader(UUID.fromString(leadStr));
+            }
+            team.setBeaconAlive(dataConfig.getBoolean(path + ".beaconAlive", true));
+            team.setFriendlyFire(dataConfig.getBoolean(path + ".friendlyFire", false));
+            if (dataConfig.contains(path + ".beaconLoc")) {
+                team.setBeaconLocation(dataConfig.getLocation(path + ".beaconLoc"));
+            }
+            List<String> mems = dataConfig.getStringList(path + ".members");
+            for (String m : mems) {
+                UUID uid = UUID.fromString(m);
+                team.getMembers().add(uid);
+                playerTeamMap.put(uid, key.toLowerCase());
+            }
+        }
     }
 }
