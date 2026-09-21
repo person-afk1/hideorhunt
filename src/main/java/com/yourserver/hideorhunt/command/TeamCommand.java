@@ -1,68 +1,83 @@
 package com.yourserver.hideorhunt.command;
 
-import com.yourserver.hideorhunt.team.BeaconTeam;
-import com.yourserver.hideorhunt.team.TeamManager;
+import com.yourserver.hideorhunt.HideOrHuntPlugin;
+import com.yourserver.hideorhunt.team.TeamData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
-public class TeamCommand implements CommandExecutor {
+import java.util.List;
+import java.util.UUID;
 
-    private final TeamManager teamManager;
+public class TeamCommand implements CommandExecutor, TabCompleter {
+    private final HideOrHuntPlugin plugin;
 
-    public TeamCommand(TeamManager teamManager) {
-        this.teamManager = teamManager;
+    public TeamCommand(HideOrHuntPlugin plugin) {
+        this.plugin = plugin;
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (args.length < 1) {
-            sender.sendMessage(Component.text("Usage: /team <create|join|leave|givebeacon> [args]", NamedTextColor.RED));
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("pvp")) {
+            if (args.length < 2) {
+                sender.sendMessage(Component.text("Usage: /team pvp <on|off>", NamedTextColor.RED));
+                return true;
+            }
+            boolean enabled = args[1].equalsIgnoreCase("on");
+
+            if (sender.hasPermission("carnage.admin")) {
+                for (TeamData td : plugin.getTeamManager().getTeams()) {
+                    td.setFriendlyFire(enabled);
+                }
+                plugin.getTeamManager().saveData();
+                Bukkit.broadcast(Component.text("» Admin set Friendly Fire to " + (enabled ? "ON" : "OFF") + " globally!", NamedTextColor.YELLOW));
+                return true;
+            }
+
+            if (!(sender instanceof Player p)) return true;
+            TeamData td = plugin.getTeamManager().getPlayerTeam(p.getUniqueId());
+            if (td == null || !p.getUniqueId().equals(td.getLeader())) {
+                p.sendMessage(Component.text("Only team leaders or admins can toggle friendly fire!", NamedTextColor.RED));
+                return true;
+            }
+
+            td.setFriendlyFire(enabled);
+            plugin.getTeamManager().saveData();
+            for (UUID uid : td.getMembers()) {
+                Player mate = Bukkit.getPlayer(uid);
+                if (mate != null) {
+                    mate.sendMessage(Component.text("» Friendly fire set to " + (enabled ? "ON" : "OFF") + " by leader.", NamedTextColor.YELLOW));
+                }
+            }
             return true;
         }
 
-        String sub = args[0].toLowerCase();
+        if (!(sender instanceof Player player)) return true;
+        TeamData td = plugin.getTeamManager().getPlayerTeam(player.getUniqueId());
+        if (td == null) {
+            player.sendMessage(Component.text("You are not on a team.", NamedTextColor.RED));
+            return true;
+        }
 
-        switch (sub) {
-            case "create" -> {
-                if (args.length < 2) {
-                    sender.sendMessage(Component.text("Usage: /team create <teamName>", NamedTextColor.RED));
-                    return true;
-                }
-                String name = args[1];
-                teamManager.createTeam(name);
-                sender.sendMessage(Component.text("Created team: " + name, NamedTextColor.GREEN));
-            }
-            case "join" -> {
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage("Only players can join teams!");
-                    return true;
-                }
-                if (args.length < 2) {
-                    player.sendMessage(Component.text("Usage: /team join <teamName>", NamedTextColor.RED));
-                    return true;
-                }
-                boolean joined = teamManager.joinTeam(player, args[1]);
-                if (joined) {
-                    player.sendMessage(Component.text("Joined team: " + args[1], NamedTextColor.GREEN));
-                } else {
-                    player.sendMessage(Component.text("Team not found!", NamedTextColor.RED));
-                }
-            }
-            case "givebeacon" -> {
-                if (!(sender instanceof Player player)) return true;
-                player.getInventory().addItem(new ItemStack(Material.BEACON));
-                player.sendMessage(Component.text("Received team Beacon!", NamedTextColor.AQUA));
-            }
-            default -> sender.sendMessage(Component.text("Unknown subcommand.", NamedTextColor.RED));
+        player.sendMessage(Component.text("=== Your Team: " + td.getName() + " ===", td.getColor()));
+        Player leader = td.getLeader() != null ? Bukkit.getPlayer(td.getLeader()) : null;
+        player.sendMessage(Component.text("Leader: " + (leader != null ? leader.getName() : "None"), NamedTextColor.WHITE));
+        player.sendMessage(Component.text("Beacon: " + (td.isBeaconAlive() ? "Alive" : "Destroyed"), td.isBeaconAlive() ? NamedTextColor.GREEN : NamedTextColor.RED));
+        if (td.getBeaconLocation() != null) {
+            player.sendMessage(Component.text("Beacon Coords: X=" + td.getBeaconLocation().getBlockX() + ", Y=" + td.getBeaconLocation().getBlockY() + ", Z=" + td.getBeaconLocation().getBlockZ(), NamedTextColor.GRAY));
         }
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
+        if (args.length == 1) return List.of("pvp");
+        if (args.length == 2 && args[0].equalsIgnoreCase("pvp")) return List.of("on", "off");
+        return List.of();
     }
 }
