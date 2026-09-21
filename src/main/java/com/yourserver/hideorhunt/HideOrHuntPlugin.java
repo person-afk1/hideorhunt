@@ -7,6 +7,7 @@ import com.yourserver.hideorhunt.listener.BeaconListener;
 import com.yourserver.hideorhunt.listener.CombatListener;
 import com.yourserver.hideorhunt.listener.MatchControlListener;
 import com.yourserver.hideorhunt.listener.PlayerConnectionListener;
+import com.yourserver.hideorhunt.team.TeamData;
 import com.yourserver.hideorhunt.team.TeamManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -66,7 +67,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
     }
 
     private void setupScoreboardTeams() {
-        for (com.yourserver.hideorhunt.team.TeamData td : teamManager.getTeams()) {
+        for (TeamData td : teamManager.getTeams()) {
             Team sbTeam = mainScoreboard.getTeam(td.getName().toLowerCase());
             if (sbTeam == null) sbTeam = mainScoreboard.registerNewTeam(td.getName().toLowerCase());
             sbTeam.color(td.getColor());
@@ -91,7 +92,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
             return;
         }
 
-        com.yourserver.hideorhunt.team.TeamData td = teamManager.getPlayerTeam(player.getUniqueId());
+        TeamData td = teamManager.getPlayerTeam(player.getUniqueId());
         if (td != null) {
             Team sbTeam = mainScoreboard.getTeam(td.getName().toLowerCase());
             if (sbTeam != null) sbTeam.addPlayer(player);
@@ -128,7 +129,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
 
             obj.getScore("§1").setScore(line--);
 
-            for (com.yourserver.hideorhunt.team.TeamData td : teamManager.getTeams()) {
+            for (TeamData td : teamManager.getTeams()) {
                 int alive = 0;
                 for (UUID u : td.getMembers()) {
                     Player tp = Bukkit.getPlayer(u);
@@ -188,7 +189,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
 
             giveKit(p);
 
-            com.yourserver.hideorhunt.team.TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
+            TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
             if (td != null && p.getUniqueId().equals(td.getLeader())) {
                 p.getInventory().addItem(new ItemStack(Material.BEACON, 1));
             }
@@ -269,10 +270,10 @@ public class HideOrHuntPlugin extends JavaPlugin {
     }
 
     public void checkWinCondition() {
-        com.yourserver.hideorhunt.team.TeamData survivingTeam = null;
+        TeamData survivingTeam = null;
         int activeTeams = 0;
 
-        for (com.yourserver.hideorhunt.team.TeamData td : teamManager.getTeams()) {
+        for (TeamData td : teamManager.getTeams()) {
             boolean hasAlive = false;
             for (UUID uid : td.getMembers()) {
                 Player p = Bukkit.getPlayer(uid);
@@ -302,7 +303,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
             );
 
             for (Player p : Bukkit.getOnlinePlayers()) {
-                com.yourserver.hideorhunt.team.TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
+                TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
                 if (td != null && td.getName().equalsIgnoreCase(survivingTeam.getName())) {
                     p.showTitle(victoryTitle);
                     p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
