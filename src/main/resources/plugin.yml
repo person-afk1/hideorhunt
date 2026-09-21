@@ -1,6 +1,6 @@
-nname: CarnageHideOrHunt
+name: CarnageHideOrHunt
 version: 1.0.0
-main: com.carnage.tournament.CarnagePlugin
+main: com.yourserver.hideorhunt.HideOrHuntPlugin
 api-version: '1.21'
 author: Arpan
 commands:
