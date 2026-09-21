@@ -1,22 +1,15 @@
-name: HideOrHunt
-version: '1.0.0'
-main: com.yourserver.hideorhunt.HideOrHuntPlugin
+nname: CarnageHideOrHunt
+version: 1.0.0
+main: com.carnage.tournament.CarnagePlugin
 api-version: '1.21'
-description: A hardcore beacon defense tournament plugin.
 author: Arpan
-
 commands:
-  team:
-    description: Manage Hide or Hunt teams
-    usage: /team <create|join|leave|givebeacon|list>
   hohadmin:
-    description: Master admin controls for Hide or Hunt
-    usage: /hohadmin <togglecrafting|status|givebeacons|forceteam|destroybeacon|clearteams>
+    description: Master administrator command for Hide or Hunt tournament management
     aliases: [hha]
-    permission: hideorhunt.admin
-    permission-message: "<red>You must be an event operator to execute this command!</red>"
-
-permissions:
-  hideorhunt.admin:
-    description: Full access to all tournament controls
-    default: op
+    permission: carnage.admin
+  team:
+    description: Player team information and management
+  teamchat:
+    description: Toggle or send a team-only chat message
+    aliases: [tc]
