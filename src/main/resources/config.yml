@@ -1,0 +1,6 @@
+min-beacon-y: 0
+grace-period-seconds: 600
+glowing-start-seconds: 1800
+glowing-duration-seconds: 600
+glowing-cooldown-seconds: 300
+allow-vanilla-crafting: false
