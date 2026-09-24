@@ -122,7 +122,6 @@ public class HideOrHuntPlugin extends JavaPlugin {
                 obj.setDisplaySlot(DisplaySlot.SIDEBAR);
             }
 
-            // Hide red score numbers on the right side
             obj.numberFormat(NumberFormat.blank());
 
             for (String entry : board.getEntries()) {
@@ -132,7 +131,6 @@ public class HideOrHuntPlugin extends JavaPlugin {
             int line = 15;
             obj.getScore("§7§m------------------------").setScore(line--);
 
-            // Match status section
             if (gameState == GameState.GRACE_PERIOD) {
                 obj.getScore("§fPhase: §eGrace Period").setScore(line--);
                 obj.getScore("§fEnds In: §a" + timerFmt).setScore(line--);
@@ -148,10 +146,9 @@ public class HideOrHuntPlugin extends JavaPlugin {
                 obj.getScore("§fStatus: §7Waiting for Host...").setScore(line--);
             }
 
-            obj.getScore("§r ").setScore(line--); // Empty spacer
+            obj.getScore("§r ").setScore(line--);
             obj.getScore("§e§lTeams:").setScore(line--);
 
-            // Teams section
             for (TeamData td : teamManager.getTeams()) {
                 int alive = 0;
                 for (UUID u : td.getMembers()) {
@@ -159,18 +156,20 @@ public class HideOrHuntPlugin extends JavaPlugin {
                     if (tp != null && tp.getGameMode() != GameMode.SPECTATOR) alive++;
                 }
 
-                String teamColorLegacy = LegacyComponentSerializer.legacySection().serialize(Component.text("", td.getColor()));
                 String beaconIcon = td.isBeaconAlive() ? "§a✔" : "§c✖";
+                Component teamLine = Component.text(" " + beaconIcon + " ")
+                        .append(Component.text(td.getName(), td.getColor(), TextDecoration.BOLD))
+                        .append(Component.text(": " + alive + " alive", NamedTextColor.GRAY).decoration(TextDecoration.BOLD, false));
 
-                obj.getScore(" " + beaconIcon + " " + teamColorLegacy + "§l" + td.getName() + "§r§7: §f" + alive + " alive").setScore(line--);
+                obj.getScore(LegacyComponentSerializer.legacySection().serialize(teamLine)).setScore(line--);
             }
 
-            // Player's personal info
             TeamData playerTeam = teamManager.getPlayerTeam(p.getUniqueId());
-            obj.getScore("§r  ").setScore(line--); // Empty spacer
+            obj.getScore("§r  ").setScore(line--);
             if (playerTeam != null) {
-                String myColor = LegacyComponentSerializer.legacySection().serialize(Component.text("", playerTeam.getColor()));
-                obj.getScore("§7Your Team: " + myColor + "§l" + playerTeam.getName()).setScore(line--);
+                Component selfLine = Component.text("§7Your Team: ")
+                        .append(Component.text(playerTeam.getName(), playerTeam.getColor(), TextDecoration.BOLD));
+                obj.getScore(LegacyComponentSerializer.legacySection().serialize(selfLine)).setScore(line--);
             } else {
                 obj.getScore("§7Your Team: §cNone").setScore(line--);
             }
