@@ -2,7 +2,6 @@ package com.yourserver.hideorhunt.team;
 
 import com.yourserver.hideorhunt.HideOrHuntPlugin;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -21,19 +20,27 @@ public class TeamManager {
     public TeamManager(HideOrHuntPlugin plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "data.yml");
-        initDefaultTeams();
         loadData();
-    }
-
-    private void initDefaultTeams() {
-        registerTeam("Red", NamedTextColor.RED);
-        registerTeam("Blue", NamedTextColor.BLUE);
-        registerTeam("Green", NamedTextColor.GREEN);
-        registerTeam("Yellow", NamedTextColor.YELLOW);
     }
 
     public void registerTeam(String name, NamedTextColor color) {
         teams.put(name.toLowerCase(), new TeamData(name, color));
+        saveData();
+    }
+
+    public boolean deleteTeam(String name) {
+        TeamData removed = teams.remove(name.toLowerCase());
+        if (removed == null) return false;
+
+        for (UUID member : removed.getMembers()) {
+            playerTeamMap.remove(member);
+        }
+
+        if (dataConfig != null && dataConfig.contains("teams." + name.toLowerCase())) {
+            dataConfig.set("teams." + name.toLowerCase(), null);
+        }
+        saveData();
+        return true;
     }
 
     public TeamData getTeam(String name) {
@@ -76,8 +83,12 @@ public class TeamManager {
 
     public void saveData() {
         if (dataConfig == null) dataConfig = new YamlConfiguration();
+        
+        dataConfig.set("teams", null);
         for (TeamData team : teams.values()) {
             String path = "teams." + team.getName().toLowerCase();
+            dataConfig.set(path + ".displayName", team.getName());
+            dataConfig.set(path + ".color", team.getColor().toString());
             dataConfig.set(path + ".leader", team.getLeader() != null ? team.getLeader().toString() : null);
             List<String> mems = team.getMembers().stream().map(UUID::toString).toList();
             dataConfig.set(path + ".members", mems);
@@ -100,9 +111,14 @@ public class TeamManager {
         if (!dataConfig.contains("teams")) return;
 
         for (String key : dataConfig.getConfigurationSection("teams").getKeys(false)) {
-            TeamData team = getTeam(key);
-            if (team == null) continue;
             String path = "teams." + key;
+            String displayName = dataConfig.getString(path + ".displayName", key);
+            String colorStr = dataConfig.getString(path + ".color", "white");
+            NamedTextColor color = NamedTextColor.NAMES.value(colorStr.toLowerCase());
+            if (color == null) color = NamedTextColor.WHITE;
+
+            TeamData team = new TeamData(displayName, color);
+
             if (dataConfig.contains(path + ".leader")) {
                 String leadStr = dataConfig.getString(path + ".leader");
                 if (leadStr != null) team.setLeader(UUID.fromString(leadStr));
@@ -118,6 +134,8 @@ public class TeamManager {
                 team.getMembers().add(uid);
                 playerTeamMap.put(uid, key.toLowerCase());
             }
+
+            teams.put(key.toLowerCase(), team);
         }
     }
 }
