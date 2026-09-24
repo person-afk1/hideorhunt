@@ -4,6 +4,7 @@ import com.yourserver.hideorhunt.HideOrHuntPlugin;
 import com.yourserver.hideorhunt.team.TeamData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -41,11 +42,24 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 String teamName = args[1];
-                NamedTextColor color = NamedTextColor.NAMES.value(args[2].toLowerCase());
+                String colorInput = args[2];
+                NamedTextColor color = NamedTextColor.NAMES.value(colorInput.toLowerCase().replace(" ", "_"));
+
                 if (color == null) {
-                    sender.sendMessage(Component.text("Invalid color! Example: RED, BLUE, GOLD, AQUA, GREEN", NamedTextColor.RED));
-                    return true;
+                    switch (colorInput.toLowerCase()) {
+                        case "orange" -> color = NamedTextColor.GOLD;
+                        case "purple" -> color = NamedTextColor.DARK_PURPLE;
+                        case "magenta", "pink" -> color = NamedTextColor.LIGHT_PURPLE;
+                        case "cyan" -> color = NamedTextColor.DARK_AQUA;
+                        case "lime" -> color = NamedTextColor.GREEN;
+                        default -> {
+                            sender.sendMessage(Component.text("Invalid color! Available colors: ", NamedTextColor.RED)
+                                    .append(Component.text("red, dark_red, blue, dark_blue, green, dark_green, yellow, gold, aqua, dark_aqua, light_purple, dark_purple, gray, dark_gray, black, white, lime, cyan, purple, pink, orange", NamedTextColor.YELLOW)));
+                            return true;
+                        }
+                    }
                 }
+
                 if (plugin.getTeamManager().getTeam(teamName) != null) {
                     sender.sendMessage(Component.text("A team with that name already exists!", NamedTextColor.RED));
                     return true;
@@ -55,7 +69,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 TeamData newTeam = plugin.getTeamManager().getTeam(teamName);
                 plugin.registerScoreboardTeam(newTeam);
                 sender.sendMessage(Component.text("Team ", NamedTextColor.GREEN)
-                        .append(Component.text(teamName, color))
+                        .append(Component.text(teamName, color, TextDecoration.BOLD))
                         .append(Component.text(" created successfully!", NamedTextColor.GREEN)));
             }
             case "deleteteam" -> {
@@ -167,13 +181,17 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             return filter(plugin.getTeamManager().getTeams().stream().map(TeamData::getName).toList(), args[1]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("setleader") || args[0].equalsIgnoreCase("setplayer"))) {
-            return null; // suggest player names
+            return null;
         }
         if (args.length == 3 && (args[0].equalsIgnoreCase("setleader") || args[0].equalsIgnoreCase("setplayer"))) {
             return filter(plugin.getTeamManager().getTeams().stream().map(TeamData::getName).toList(), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("createteam")) {
-            return filter(Arrays.asList("black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white"), args[2]);
+            return filter(Arrays.asList(
+                    "red", "dark_red", "blue", "dark_blue", "green", "dark_green", 
+                    "yellow", "gold", "aqua", "dark_aqua", "light_purple", "dark_purple", 
+                    "gray", "dark_gray", "white", "black", "lime", "cyan", "purple", "pink", "orange"
+            ), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("pvp")) {
             return filter(List.of("on", "off"), args[2]);
