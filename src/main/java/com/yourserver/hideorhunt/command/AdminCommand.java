@@ -35,6 +35,46 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         switch (args[0].toLowerCase()) {
+            case "createteam" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(Component.text("Usage: /hohadmin createteam <name> <color>", NamedTextColor.RED));
+                    return true;
+                }
+                String teamName = args[1];
+                NamedTextColor color = NamedTextColor.NAMES.value(args[2].toLowerCase());
+                if (color == null) {
+                    sender.sendMessage(Component.text("Invalid color! Example: RED, BLUE, GOLD, AQUA, GREEN", NamedTextColor.RED));
+                    return true;
+                }
+                if (plugin.getTeamManager().getTeam(teamName) != null) {
+                    sender.sendMessage(Component.text("A team with that name already exists!", NamedTextColor.RED));
+                    return true;
+                }
+
+                plugin.getTeamManager().registerTeam(teamName, color);
+                TeamData newTeam = plugin.getTeamManager().getTeam(teamName);
+                plugin.registerScoreboardTeam(newTeam);
+                sender.sendMessage(Component.text("Team ", NamedTextColor.GREEN)
+                        .append(Component.text(teamName, color))
+                        .append(Component.text(" created successfully!", NamedTextColor.GREEN)));
+            }
+            case "deleteteam" -> {
+                if (args.length < 2) {
+                    sender.sendMessage(Component.text("Usage: /hohadmin deleteteam <name>", NamedTextColor.RED));
+                    return true;
+                }
+                String teamName = args[1];
+                boolean removed = plugin.getTeamManager().deleteTeam(teamName);
+                if (removed) {
+                    plugin.unregisterScoreboardTeam(teamName);
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        plugin.updatePlayerTab(p);
+                    }
+                    sender.sendMessage(Component.text("Team " + teamName + " deleted.", NamedTextColor.YELLOW));
+                } else {
+                    sender.sendMessage(Component.text("Team not found!", NamedTextColor.RED));
+                }
+            }
             case "startgame" -> {
                 int radius = args.length > 1 ? Integer.parseInt(args[1]) : 500;
                 Player p = sender instanceof Player ? (Player) sender : null;
@@ -64,6 +104,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 if (target != null && td != null) {
                     td.setLeader(target.getUniqueId());
                     plugin.getTeamManager().setPlayerTeam(target.getUniqueId(), td.getName());
+                    plugin.updatePlayerTab(target);
                     sender.sendMessage(Component.text(target.getName() + " is now leader of " + td.getName(), NamedTextColor.GREEN));
                 }
             }
@@ -104,6 +145,8 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(Component.text("=== Tournament Host Controls ===", NamedTextColor.GOLD));
+        sender.sendMessage(Component.text("/hohadmin createteam <name> <color> - Register a brand new team", NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("/hohadmin deleteteam <name> - Delete an existing team", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin startgame [radius] - Drops players and initializes border", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin pause / resume - Freezes match events, damage, and timers", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin setleader <player> <team> - Assigns team leader with beacon", NamedTextColor.YELLOW));
@@ -118,13 +161,19 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
         if (!sender.hasPermission("carnage.admin")) return List.of();
         if (args.length == 1) {
-            return filter(Arrays.asList("startgame", "pause", "resume", "setleader", "setplayer", "setminy", "startglowing", "stopglowing", "togglecrafting", "pvp", "help"), args[0]);
+            return filter(Arrays.asList("createteam", "deleteteam", "startgame", "pause", "resume", "setleader", "setplayer", "setminy", "startglowing", "stopglowing", "togglecrafting", "pvp", "help"), args[0]);
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("deleteteam") || args[0].equalsIgnoreCase("pvp"))) {
+            return filter(plugin.getTeamManager().getTeams().stream().map(TeamData::getName).toList(), args[1]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("setleader") || args[0].equalsIgnoreCase("setplayer"))) {
-            return null;
+            return null; // suggest player names
         }
-        if (args.length == 3 && (args[0].equalsIgnoreCase("setleader") || args[0].equalsIgnoreCase("setplayer") || args[0].equalsIgnoreCase("pvp"))) {
+        if (args.length == 3 && (args[0].equalsIgnoreCase("setleader") || args[0].equalsIgnoreCase("setplayer"))) {
             return filter(plugin.getTeamManager().getTeams().stream().map(TeamData::getName).toList(), args[2]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("createteam")) {
+            return filter(Arrays.asList("black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple", "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white"), args[2]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("pvp")) {
             return filter(List.of("on", "off"), args[2]);
