@@ -9,9 +9,11 @@ import com.yourserver.hideorhunt.listener.MatchControlListener;
 import com.yourserver.hideorhunt.listener.PlayerConnectionListener;
 import com.yourserver.hideorhunt.team.TeamData;
 import com.yourserver.hideorhunt.team.TeamManager;
+import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.entity.Firework;
@@ -109,46 +111,71 @@ public class HideOrHuntPlugin extends JavaPlugin {
     }
 
     public void updateAllScoreboards(int timerSeconds) {
+        String timerFmt = String.format("%02d:%02d", timerSeconds / 60, timerSeconds % 60);
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             Scoreboard board = p.getScoreboard();
             Objective obj = board.getObjective("carnage_board");
             if (obj == null) {
                 obj = board.registerNewObjective("carnage_board", Criteria.DUMMY,
-                        Component.text("HIDE OR HUNT", NamedTextColor.GOLD, TextDecoration.BOLD));
+                        Component.text("✦ HIDE OR HUNT ✦", NamedTextColor.GOLD, TextDecoration.BOLD));
                 obj.setDisplaySlot(DisplaySlot.SIDEBAR);
             }
 
-            for (String entry : board.getEntries()) board.resetScores(entry);
+            // Hide red score numbers on the right side
+            obj.numberFormat(NumberFormat.blank());
 
-            int line = 15;
-            obj.getScore("§7§m-------------------").setScore(line--);
-
-            String timerFmt = String.format("%02d:%02d", timerSeconds / 60, timerSeconds % 60);
-            if (gameState == GameState.GRACE_PERIOD) {
-                obj.getScore("§eGrace Ends: §f" + timerFmt).setScore(line--);
-            } else if (gameState == GameState.GLOWING_ACTIVE) {
-                obj.getScore("§c§lGLOWING: §f" + timerFmt).setScore(line--);
-            } else if (gameState == GameState.GLOWING_COOLDOWN || gameState == GameState.ACTIVE_PVP) {
-                obj.getScore("§aGlow Cycle: §f" + timerFmt).setScore(line--);
-            } else if (gameState == GameState.PAUSED) {
-                obj.getScore("§c§lPAUSED").setScore(line--);
-            } else {
-                obj.getScore("§7Waiting for Host").setScore(line--);
+            for (String entry : board.getEntries()) {
+                board.resetScores(entry);
             }
 
-            obj.getScore("§1").setScore(line--);
+            int line = 15;
+            obj.getScore("§7§m------------------------").setScore(line--);
 
+            // Match status section
+            if (gameState == GameState.GRACE_PERIOD) {
+                obj.getScore("§fPhase: §eGrace Period").setScore(line--);
+                obj.getScore("§fEnds In: §a" + timerFmt).setScore(line--);
+            } else if (gameState == GameState.GLOWING_ACTIVE) {
+                obj.getScore("§fPhase: §c§lGLOWING").setScore(line--);
+                obj.getScore("§fEnds In: §e" + timerFmt).setScore(line--);
+            } else if (gameState == GameState.GLOWING_COOLDOWN || gameState == GameState.ACTIVE_PVP) {
+                obj.getScore("§fPhase: §6Hunt Active").setScore(line--);
+                obj.getScore("§fNext Glow: §b" + timerFmt).setScore(line--);
+            } else if (gameState == GameState.PAUSED) {
+                obj.getScore("§fPhase: §c§lPAUSED").setScore(line--);
+            } else {
+                obj.getScore("§fStatus: §7Waiting for Host...").setScore(line--);
+            }
+
+            obj.getScore("§r ").setScore(line--); // Empty spacer
+            obj.getScore("§e§lTeams:").setScore(line--);
+
+            // Teams section
             for (TeamData td : teamManager.getTeams()) {
                 int alive = 0;
                 for (UUID u : td.getMembers()) {
                     Player tp = Bukkit.getPlayer(u);
                     if (tp != null && tp.getGameMode() != GameMode.SPECTATOR) alive++;
                 }
-                String icon = td.isBeaconAlive() ? "§a✔" : "§c❌";
-                obj.getScore(icon + " " + td.getColor() + td.getName() + "§7: §f" + alive).setScore(line--);
+
+                String teamColorLegacy = LegacyComponentSerializer.legacySection().serialize(Component.text("", td.getColor()));
+                String beaconIcon = td.isBeaconAlive() ? "§a✔" : "§c✖";
+
+                obj.getScore(" " + beaconIcon + " " + teamColorLegacy + "§l" + td.getName() + "§r§7: §f" + alive + " alive").setScore(line--);
             }
 
-            obj.getScore("§7§m------------------- ").setScore(line--);
+            // Player's personal info
+            TeamData playerTeam = teamManager.getPlayerTeam(p.getUniqueId());
+            obj.getScore("§r  ").setScore(line--); // Empty spacer
+            if (playerTeam != null) {
+                String myColor = LegacyComponentSerializer.legacySection().serialize(Component.text("", playerTeam.getColor()));
+                obj.getScore("§7Your Team: " + myColor + "§l" + playerTeam.getName()).setScore(line--);
+            } else {
+                obj.getScore("§7Your Team: §cNone").setScore(line--);
+            }
+
+            obj.getScore("§7§m------------------------ ").setScore(line--);
         }
     }
 
