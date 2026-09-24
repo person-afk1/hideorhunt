@@ -50,7 +50,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
         this.mainScoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         this.teamManager = new TeamManager(this);
-        setupScoreboardTeams();
+        refreshAllScoreboardTeams();
 
         registerCommands();
         registerEvents();
@@ -66,12 +66,21 @@ public class HideOrHuntPlugin extends JavaPlugin {
         }
     }
 
-    private void setupScoreboardTeams() {
+    public void registerScoreboardTeam(TeamData td) {
+        Team sbTeam = mainScoreboard.getTeam(td.getName().toLowerCase());
+        if (sbTeam == null) sbTeam = mainScoreboard.registerNewTeam(td.getName().toLowerCase());
+        sbTeam.color(td.getColor());
+        sbTeam.prefix(Component.text("[" + td.getName() + "] ", td.getColor()));
+    }
+
+    public void unregisterScoreboardTeam(String teamName) {
+        Team sbTeam = mainScoreboard.getTeam(teamName.toLowerCase());
+        if (sbTeam != null) sbTeam.unregister();
+    }
+
+    public void refreshAllScoreboardTeams() {
         for (TeamData td : teamManager.getTeams()) {
-            Team sbTeam = mainScoreboard.getTeam(td.getName().toLowerCase());
-            if (sbTeam == null) sbTeam = mainScoreboard.registerNewTeam(td.getName().toLowerCase());
-            sbTeam.color(td.getColor());
-            sbTeam.prefix(Component.text("[" + td.getName() + "] ", td.getColor()));
+            registerScoreboardTeam(td);
         }
         Team specTeam = mainScoreboard.getTeam("z_spectator");
         if (specTeam == null) specTeam = mainScoreboard.registerNewTeam("z_spectator");
