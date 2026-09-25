@@ -211,29 +211,37 @@ public class HideOrHuntPlugin extends JavaPlugin {
     }
 
     public void startGame(World world, int borderSize) {
+        Random rand = new Random();
+        // Generate a new arena center (between -20,000 and 20,000)
+        double centerX = (rand.nextInt(40000) - 20000) + 0.5;
+        double centerZ = (rand.nextInt(40000) - 20000) + 0.5;
+
         WorldBorder border = world.getWorldBorder();
-        border.setCenter(0.0, 0.0);
+        border.setCenter(centerX, centerZ);
         border.setSize(borderSize);
 
-        Random rand = new Random();
+        // Preload chunks around the center to prevent loading lag during drop
+        world.getChunkAtAsync((int) centerX >> 4, (int) centerZ >> 4);
+
+        // All players spawn at the exact same location in the air above the new center
+        Location dropLoc = new Location(world, centerX, 250.0, centerZ);
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.getInventory().clear();
             p.setGameMode(GameMode.SURVIVAL);
             p.setHealth(20.0);
             p.setFoodLevel(20);
 
-            giveKit(p);
+            // Give the starter kit (including food, iron, wood, and invis potion)
+            giveStarterKit(p);
 
             TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
             if (td != null && p.getUniqueId().equals(td.getLeader())) {
                 p.getInventory().addItem(new ItemStack(Material.BEACON, 1));
             }
 
-            int x = rand.nextInt(borderSize - 40) - (borderSize / 2 - 20);
-            int z = rand.nextInt(borderSize - 40) - (borderSize / 2 - 20);
-            Location dropLoc = new Location(world, x, 250, z);
             p.teleport(dropLoc);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 600, 1, false, false));
+            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 800, 1, false, false));
         }
 
         gameState = GameState.GRACE_PERIOD;
@@ -241,9 +249,11 @@ public class HideOrHuntPlugin extends JavaPlugin {
         Bukkit.broadcast(Component.text("» Hide or Hunt Started! 10-Minute Grace Period Active.", NamedTextColor.GREEN));
     }
 
-    public void giveKit(Player player) {
-        player.getInventory().addItem(new ItemStack(Material.IRON_INGOT, 40));
-        player.getInventory().addItem(new ItemStack(Material.OAK_PLANKS, 64));
+    /**
+     * Given once at match start: contains Invisibility Potion.
+     */
+    public void giveStarterKit(Player player) {
+        giveKit(player); // 40 iron, 64 oak planks, 32 cooked beef
 
         ItemStack pot = new ItemStack(Material.POTION);
         PotionMeta meta = (PotionMeta) pot.getItemMeta();
@@ -251,6 +261,15 @@ public class HideOrHuntPlugin extends JavaPlugin {
         meta.displayName(Component.text("3-Minute Invisibility", NamedTextColor.AQUA));
         pot.setItemMeta(meta);
         player.getInventory().addItem(pot);
+    }
+
+    /**
+     * Given upon respawn: NO invisibility potion, includes 32 cooked beef.
+     */
+    public void giveKit(Player player) {
+        player.getInventory().addItem(new ItemStack(Material.IRON_INGOT, 40));
+        player.getInventory().addItem(new ItemStack(Material.OAK_PLANKS, 64));
+        player.getInventory().addItem(new ItemStack(Material.COOKED_BEEF, 32));
     }
 
     private void startGameLoop() {
