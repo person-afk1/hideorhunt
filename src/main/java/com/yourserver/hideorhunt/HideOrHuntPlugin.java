@@ -210,9 +210,49 @@ public class HideOrHuntPlugin extends JavaPlugin {
         Bukkit.broadcast(Component.text("» MATCH RESUMED «", NamedTextColor.GREEN));
     }
 
+    /**
+     * Completely terminates the current match and resets all team beacons.
+     */
+    public void endGame() {
+        gameState = GameState.WAITING;
+        currentTimer = 0;
+
+        // Clear active potion effects and reset players
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.removePotionEffect(PotionEffectType.GLOWING);
+            p.removePotionEffect(PotionEffectType.SLOW_FALLING);
+            p.setGameMode(GameMode.SURVIVAL);
+            updatePlayerTab(p);
+        }
+
+        // Wipe previous beacons physically and logically
+        resetMatchData(true);
+
+        Bukkit.broadcast(Component.text("» MATCH HAS BEEN ENDED BY AN ADMIN. Ready for restart. «", NamedTextColor.RED));
+    }
+
+    /**
+     * Clears all beacons and states across all registered teams.
+     */
+    public void resetMatchData(boolean clearBlocks) {
+        for (TeamData td : teamManager.getTeams()) {
+            if (clearBlocks && td.getBeaconLocation() != null) {
+                Location loc = td.getBeaconLocation();
+                if (loc.getWorld() != null && loc.getBlock().getType() == Material.BEACON) {
+                    loc.getBlock().setType(Material.AIR);
+                }
+            }
+            td.setBeaconLocation(null);
+            td.setBeaconAlive(true);
+        }
+        teamManager.saveData();
+    }
+
     public void startGame(World world, int borderSize) {
+        // Clear old beacon data from any prior match before launching a new one
+        resetMatchData(true);
+
         Random rand = new Random();
-        // Generate a new arena center (between -20,000 and 20,000)
         double centerX = (rand.nextInt(40000) - 20000) + 0.5;
         double centerZ = (rand.nextInt(40000) - 20000) + 0.5;
 
@@ -220,10 +260,8 @@ public class HideOrHuntPlugin extends JavaPlugin {
         border.setCenter(centerX, centerZ);
         border.setSize(borderSize);
 
-        // Preload chunks around the center to prevent loading lag during drop
         world.getChunkAtAsync((int) centerX >> 4, (int) centerZ >> 4);
 
-        // All players spawn at the exact same location in the air above the new center
         Location dropLoc = new Location(world, centerX, 250.0, centerZ);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -232,7 +270,6 @@ public class HideOrHuntPlugin extends JavaPlugin {
             p.setHealth(20.0);
             p.setFoodLevel(20);
 
-            // Give the starter kit (including food, iron, wood, and invis potion)
             giveStarterKit(p);
 
             TeamData td = teamManager.getPlayerTeam(p.getUniqueId());
@@ -242,6 +279,7 @@ public class HideOrHuntPlugin extends JavaPlugin {
 
             p.teleport(dropLoc);
             p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 800, 1, false, false));
+            updatePlayerTab(p);
         }
 
         gameState = GameState.GRACE_PERIOD;
@@ -249,11 +287,8 @@ public class HideOrHuntPlugin extends JavaPlugin {
         Bukkit.broadcast(Component.text("» Hide or Hunt Started! 10-Minute Grace Period Active.", NamedTextColor.GREEN));
     }
 
-    /**
-     * Given once at match start: contains Invisibility Potion.
-     */
     public void giveStarterKit(Player player) {
-        giveKit(player); // 40 iron, 64 oak planks, 32 cooked beef
+        giveKit(player);
 
         ItemStack pot = new ItemStack(Material.POTION);
         PotionMeta meta = (PotionMeta) pot.getItemMeta();
@@ -263,9 +298,6 @@ public class HideOrHuntPlugin extends JavaPlugin {
         player.getInventory().addItem(pot);
     }
 
-    /**
-     * Given upon respawn: NO invisibility potion, includes 32 cooked beef.
-     */
     public void giveKit(Player player) {
         player.getInventory().addItem(new ItemStack(Material.IRON_INGOT, 40));
         player.getInventory().addItem(new ItemStack(Material.OAK_PLANKS, 64));
