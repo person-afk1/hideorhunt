@@ -95,6 +95,10 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 plugin.startGame(p != null ? p.getWorld() : Bukkit.getWorlds().get(0), radius);
                 sender.sendMessage(Component.text("Match started with border radius " + radius, NamedTextColor.GREEN));
             }
+            case "endgame" -> {
+                plugin.endGame();
+                sender.sendMessage(Component.text("Game has been ended and beacons reset.", NamedTextColor.RED));
+            }
             case "pause" -> {
                 plugin.pauseGame();
                 sender.sendMessage(Component.text("Match paused.", NamedTextColor.YELLOW));
@@ -162,6 +166,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Component.text("/hohadmin createteam <name> <color> - Register a brand new team", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin deleteteam <name> - Delete an existing team", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin startgame [radius] - Drops players and initializes border", NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("/hohadmin endgame - Stops match, resets state and all beacons", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin pause / resume - Freezes match events, damage, and timers", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin setleader <player> <team> - Assigns team leader with beacon", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/hohadmin setplayer <player> <team> - Assigns member to a team", NamedTextColor.YELLOW));
@@ -175,7 +180,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
         if (!sender.hasPermission("carnage.admin")) return List.of();
         if (args.length == 1) {
-            return filter(Arrays.asList("createteam", "deleteteam", "startgame", "pause", "resume", "setleader", "setplayer", "setminy", "startglowing", "stopglowing", "togglecrafting", "pvp", "help"), args[0]);
+            return filter(Arrays.asList("createteam", "deleteteam", "startgame", "endgame", "pause", "resume", "setleader", "setplayer", "setminy", "startglowing", "stopglowing", "togglecrafting", "pvp", "help"), args[0]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("deleteteam") || args[0].equalsIgnoreCase("pvp"))) {
             return filter(plugin.getTeamManager().getTeams().stream().map(TeamData::getName).toList(), args[1]);
